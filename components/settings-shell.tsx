@@ -11,6 +11,7 @@ import ShortsDuplicates from "@/components/shorts-duplicates";
 import ShortsCleanup from "@/components/shorts-cleanup";
 import ShortsTitleFetch from "@/components/shorts-title-fetch";
 import ShortsCaptionBackfill from "@/components/shorts-caption-backfill";
+import NavigationSettings from "@/components/navigation-settings";
 
 const TABS = [
   { key: "sources", label: "Sources", adminOnly: true },
@@ -18,6 +19,7 @@ const TABS = [
   { key: "duplicates", label: "Duplicates", adminOnly: false },
   { key: "cleaning", label: "Cleaning", adminOnly: false },
   { key: "titles", label: "Titles", adminOnly: true },
+  { key: "links", label: "Links", adminOnly: true },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -68,6 +70,7 @@ function Panel({ tab, isAdmin }: { tab: TabKey; isAdmin: boolean }) {
   }
   if (tab === "duplicates") return <ShortsDuplicates />;
   if (tab === "cleaning") return <ShortsCleanup />;
+  if (tab === "links" && isAdmin) return <NavigationSettings />;
   if (tab === "titles" && isAdmin) {
     return (
       <div className="flex flex-col gap-6">

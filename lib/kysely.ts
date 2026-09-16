@@ -17,6 +17,7 @@ import {
   type FollowRow,
   type MediaFpRow,
   type ShortDupeDismissalRow,
+  type AppSettingRow,
 } from "./db";
 
 // The table map is built from the row interfaces in db.ts (which are updated
@@ -39,6 +40,7 @@ export interface DB {
   short_media_fp: MediaFpRow;
   short_dupe_dismissals: ShortDupeDismissalRow;
   follows: FollowRow;
+  app_settings: AppSettingRow;
 }
 
 // Kysely is used ONLY to build and type-check queries. Execution stays

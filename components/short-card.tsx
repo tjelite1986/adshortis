@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useBackDismiss } from "@/lib/use-back-dismiss";
+import { useAppSetting } from "@/components/app-settings-context";
 import { splitCaption } from "@/lib/shorts-caption";
 import PostAvatar from "@/components/post-avatar";
 import LinkifyText from "@/components/linkify-text";
@@ -193,6 +194,10 @@ export default function ShortCard({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  // Admin-controlled: an install that does not feed a main library has no use
+  // for the row. The route refuses the move as well, so this is the menu
+  // catching up with the decision rather than the whole of it.
+  const handoverEnabled = useAppSetting("show_handover_action");
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -1036,14 +1041,16 @@ export default function ShortCard({
                   />
                 )}
                 <div className="my-1 border-t border-white/10" />
-                <MoreRow
-                  icon={<ArrowRightLeft size={18} />}
-                  label="Hand over to the main library"
-                  onClick={() => {
-                    setShowMore(false);
-                    handOver();
-                  }}
-                />
+                {handoverEnabled && (
+                  <MoreRow
+                    icon={<ArrowRightLeft size={18} />}
+                    label="Hand over to the main library"
+                    onClick={() => {
+                      setShowMore(false);
+                      handOver();
+                    }}
+                  />
+                )}
                 <MoreRow
                   icon={<Trash2 size={18} className="text-red-400" />}
                   label="Delete"

@@ -242,6 +242,16 @@ function migrate(db: Database.Database) {
       total INTEGER NOT NULL DEFAULT 0,
       message TEXT
     );
+
+    -- Install-wide preferences an admin can change from the Settings page,
+    -- stored as text so a key can hold more than a flag later. A key that has
+    -- never been touched is simply absent; every reader supplies its own
+    -- default rather than the table seeding one.
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Full-text index over captions, as a content table over `shorts` so the index
@@ -453,6 +463,12 @@ export interface ShortTitleStateRow {
 
 // Same shape, different job: the caption backfill.
 export type ShortCaptionStateRow = ShortTitleStateRow;
+
+export interface AppSettingRow {
+  key: string;
+  value: string;
+  updated_at: string;
+}
 
 export interface MediaFpRow {
   short_id: number;

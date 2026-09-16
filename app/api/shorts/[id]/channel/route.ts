@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession, sameOrigin } from "@/lib/auth";
 import { getShort } from "@/lib/shorts";
 import { handOverToMain, handoverConfigured } from "@/lib/handover";
+import { getBooleanSetting } from "@/lib/app-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,15 @@ export async function PATCH(
     return NextResponse.json(
       { error: "The only move from here is to the main library." },
       { status: 400 }
+    );
+  }
+  // Turned off in Settings > Links the action is gone from the menu; the route
+  // says the same thing, so a hidden button is not a route anyone can still
+  // reach by hand.
+  if (!getBooleanSetting("show_handover_action")) {
+    return NextResponse.json(
+      { error: "Handover is turned off for this library." },
+      { status: 403 }
     );
   }
   if (!handoverConfigured()) {

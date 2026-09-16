@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { getSession, handleFor } from "@/lib/auth";
 import { loginUrl, ssoConfigured } from "@/lib/sso";
+import { getBooleanSetting, getBooleanSettings } from "@/lib/app-settings";
+import { AppSettingsProvider } from "@/components/app-settings-context";
 import BottomNav from "@/components/bottom-nav";
 import SignedOut from "@/components/signed-out";
 import PwaRegister from "@/components/pwa-register";
@@ -40,11 +42,22 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const session = await getSession();
-  const eliteUrl = process.env.ELITE_APP_URL || null;
+  // Both addresses are gated on a setting an admin flips in Settings > Links:
+  // run this app on its own and neither link leads anywhere you want to go, so
+  // the menu should be able to drop them without the address having to go too
+  // (the handover still needs MAIN_APP_URL's neighbour to exist).
+  const eliteUrl = getBooleanSetting("show_elite_link")
+    ? process.env.ELITE_APP_URL || null
+    : null;
   // The main shorts library. Read here, not as NEXT_PUBLIC_: it is a deployment
   // fact, and baking it into the client bundle would publish the address of a
   // neighbouring app to anyone who opens the JS.
-  const mainUrl = process.env.MAIN_APP_URL || null;
+  const mainUrl = getBooleanSetting("show_main_library_link")
+    ? process.env.MAIN_APP_URL || null
+    : null;
+  // The rest of the flags travel to the client tree, where a clip's 3-dot menu
+  // reads them.
+  const appSettings = getBooleanSettings();
 
   // Two custom properties, adopted from the site the login comes from so the
   // app does not announce itself as somewhere else on every visit. Both values
@@ -59,34 +72,36 @@ export default async function RootLayout({
     <html lang="en" className="dark">
       <body className="overflow-x-hidden bg-[#121212]">
         {themeCss && <style dangerouslySetInnerHTML={{ __html: themeCss }} />}
-        <div
-          className="relative min-h-[100dvh] w-full"
-          style={{ background: "var(--app-bg)" }}
-        >
-          {session ? (
-            <BottomNav
-              isAdmin={session.role === "admin"}
-              handle={handleFor({
-                username: session.username,
-                email: session.email,
-              })}
-              eliteUrl={eliteUrl}
-              mainUrl={mainUrl}
-            >
-              {children}
-              <InstallBanner />
-            </BottomNav>
-          ) : (
-            // Not a redirect. The sign-in page belongs to another host, and a
-            // server-side redirect there would make every cold load bounce
-            // through it — including the ones where elite-v2 is simply
-            // unreachable, which is a different problem and deserves to say so.
-            <SignedOut
-              loginHref={loginUrl("/")}
-              configured={ssoConfigured()}
-            />
-          )}
-        </div>
+        <AppSettingsProvider value={appSettings}>
+          <div
+            className="relative min-h-[100dvh] w-full"
+            style={{ background: "var(--app-bg)" }}
+          >
+            {session ? (
+              <BottomNav
+                isAdmin={session.role === "admin"}
+                handle={handleFor({
+                  username: session.username,
+                  email: session.email,
+                })}
+                eliteUrl={eliteUrl}
+                mainUrl={mainUrl}
+              >
+                {children}
+                <InstallBanner />
+              </BottomNav>
+            ) : (
+              // Not a redirect. The sign-in page belongs to another host, and a
+              // server-side redirect there would make every cold load bounce
+              // through it — including the ones where elite-v2 is simply
+              // unreachable, which is a different problem and deserves to say so.
+              <SignedOut
+                loginHref={loginUrl("/")}
+                configured={ssoConfigured()}
+              />
+            )}
+          </div>
+        </AppSettingsProvider>
         <PwaRegister />
       </body>
     </html>
