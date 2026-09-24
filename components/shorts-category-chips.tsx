@@ -37,6 +37,7 @@ export default function ShortsCategoryChips({
       {chips.map((c) => (
         <button
           key={c.value}
+          aria-pressed={active === c.value}
           onClick={() => go(c.value)}
           className={cn(
             "whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition",
