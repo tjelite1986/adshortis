@@ -14,8 +14,6 @@ import {
   Send,
   Bookmark,
   Plus,
-  Tag,
-  Check,
   Image as ImageIcon,
   Sparkles,
   Minimize2,
@@ -25,7 +23,6 @@ import {
   Globe,
   Lock,
   ArrowRightLeft,
-  Clapperboard,
   Trash2,
   MoreVertical,
   ListVideo,
@@ -34,7 +31,6 @@ import {
   Hash,
   Maximize,
   Link2,
-  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useBackDismiss } from "@/lib/use-back-dismiss";
@@ -69,7 +65,7 @@ export interface FeedShort {
   category: string;
   caption: string | null;
   uploader_id: number | null;
-  uploader_email: string | null;
+  uploader_name: string | null;
   profile_id: number | null;
   profile_name: string | null;
   width: number | null;
@@ -92,16 +88,6 @@ interface Comment {
   body: string;
   author_name: string | null;
   created_at: string;
-}
-
-interface ChatUser {
-  id: number;
-  email: string;
-}
-
-function displayName(email: string | null): string {
-  if (!email) return "Unknown";
-  return email.split("@")[0];
 }
 
 const TITLE_CLAMP = 40; // chars before the title gets a "more" expander
@@ -139,7 +125,7 @@ function sourceLink(short: FeedShort): { url: string; label: string } | null {
 // (keeps the label in sync with the /people link), otherwise the uploader.
 function authorLabel(short: FeedShort): string {
   if (short.profile_id && short.profile_name) return short.profile_name;
-  if (short.uploader_email) return displayName(short.uploader_email);
+  if (short.uploader_name) return short.uploader_name;
   if (short.profile_name) return short.profile_name;
   return "unknown";
 }
@@ -846,7 +832,7 @@ export default function ShortCard({
             </Link>
           ) : (
             <div className="flex w-fit items-center gap-2.5">
-              <PostAvatar username={displayName(short.uploader_email)} size={40} />
+              <PostAvatar username={short.uploader_name ?? "Unknown"} size={40} />
               <span className="text-[15px] font-semibold drop-shadow">
                 {authorLabel(short)}
               </span>
