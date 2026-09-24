@@ -1,9 +1,18 @@
-# The image compiles its own native modules (better-sqlite3, sharp) in the deps
-# stage; a host node_modules copied in over them by `COPY . .` would be at best
-# redundant and at worst built against a different glibc.
+# Everything the image builds itself or must never contain. COPY . . does not
+# honour .gitignore, so this list is what keeps a host checkout's node_modules
+# (wrong arch), .next (wrong build) and data/ (a live database) out of the
+# build context.
+.git
+.github
 node_modules
 .next
 data
-.git
+docs
+deploy
 *.log
+.env
+.env.*
 tsconfig.tsbuildinfo
+README.md
+Dockerfile
+.dockerignore
