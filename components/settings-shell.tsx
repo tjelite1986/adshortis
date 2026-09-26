@@ -11,6 +11,7 @@ import ShortsDuplicates from "@/components/shorts-duplicates";
 import ShortsCleanup from "@/components/shorts-cleanup";
 import ShortsTitleFetch from "@/components/shorts-title-fetch";
 import ShortsCaptionBackfill from "@/components/shorts-caption-backfill";
+import PlaybackSettings from "@/components/playback-settings";
 import NavigationSettings from "@/components/navigation-settings";
 
 const TABS = [
@@ -20,6 +21,8 @@ const TABS = [
   { key: "cleaning", label: "Cleaning", adminOnly: false },
   { key: "titles", label: "Titles", adminOnly: true },
   { key: "links", label: "Links", adminOnly: true },
+  // Per-device viewer preferences: the one tab that needs no permission.
+  { key: "playback", label: "Playback", adminOnly: false },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -33,6 +36,7 @@ function Card({ children }: { children: React.ReactNode }) {
 }
 
 function Panel({ tab, isAdmin }: { tab: TabKey; isAdmin: boolean }) {
+  if (tab === "playback") return <PlaybackSettings />;
   if (tab === "sources") {
     return (
       <div className="flex flex-col gap-6">
@@ -82,10 +86,20 @@ function Panel({ tab, isAdmin }: { tab: TabKey; isAdmin: boolean }) {
   return null;
 }
 
-function Shell({ tab, isAdmin }: { tab?: string; isAdmin: boolean }) {
+function Shell({
+  tab,
+  isAdmin,
+  canTools,
+}: {
+  tab?: string;
+  isAdmin: boolean;
+  canTools: boolean;
+}) {
   const pathname = usePathname();
   const params = useSearchParams();
-  const visible = TABS.filter((t) => isAdmin || !t.adminOnly);
+  const visible = TABS.filter(
+    (t) => t.key === "playback" || (canTools && (isAdmin || !t.adminOnly))
+  );
   const requested = (tab ?? params.get("tab")) as TabKey | null;
   const active: TabKey =
     requested && visible.some((t) => t.key === requested)
@@ -119,15 +133,18 @@ function Shell({ tab, isAdmin }: { tab?: string; isAdmin: boolean }) {
 export default function SettingsShell({
   tab,
   isAdmin,
+  canTools,
 }: {
   tab?: string;
   isAdmin: boolean;
+  // Whether the library tools (import, duplicates, cleaning...) are shown.
+  canTools: boolean;
 }) {
   // useSearchParams needs a boundary; the server already knows the tab, so the
   // fallback is only ever a frame long.
   return (
     <Suspense fallback={null}>
-      <Shell tab={tab} isAdmin={isAdmin} />
+      <Shell tab={tab} isAdmin={isAdmin} canTools={canTools} />
     </Suspense>
   );
 }

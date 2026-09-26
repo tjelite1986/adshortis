@@ -10,6 +10,7 @@ import { useConfirm } from "@/components/confirm-dialog";
 import GridDensity, { useGridCols, GRID_COL_CLASS } from "@/components/grid-density";
 import { splitCaption } from "@/lib/shorts-caption";
 import ShortsInlineClip from "@/components/shorts-inline-clip";
+import { useSoundPreference } from "@/components/use-sound-preference";
 import { SHORT_CATEGORIES, CATEGORY_LABELS } from "@/lib/shorts-categories";
 import { cn } from "@/lib/utils";
 
@@ -108,7 +109,8 @@ export default function ShortsGrid({
   });
   const [cols, switchCols] = useGridCols("shorts-grid-cols");
   // Shared by every inline clip: unmuting one keeps the next one audible.
-  const [muted, setMuted] = useState(true);
+  // Seeded from Settings > Playback, like the feed.
+  const { muted, setMutedByUser, soundBlocked } = useSoundPreference();
   const sentinel = useRef<HTMLDivElement>(null);
   // Orphans the pages still in flight when the filter changes, so tiles from
   // the previous filter can never land in the new list.
@@ -419,7 +421,8 @@ export default function ShortsGrid({
                   id={s.id}
                   poster={posterUrl}
                   muted={muted}
-                  onMuteChange={setMuted}
+                  onMuteChange={setMutedByUser}
+                  onSoundBlocked={soundBlocked}
                 />
               ) : posterUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
