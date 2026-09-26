@@ -19,6 +19,7 @@ import {
   type FollowRow,
   type MediaFpRow,
   type ShortDupeDismissalRow,
+  type ShortHideRow,
   type AppSettingRow,
 } from "./db";
 
@@ -43,6 +44,7 @@ export interface DB {
   short_poll_failures: ShortPollFailureRow;
   short_media_fp: MediaFpRow;
   short_dupe_dismissals: ShortDupeDismissalRow;
+  short_hides: ShortHideRow;
   follows: FollowRow;
   app_settings: AppSettingRow;
 }

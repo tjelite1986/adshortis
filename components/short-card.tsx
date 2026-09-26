@@ -31,6 +31,8 @@ import {
   Hash,
   Maximize,
   Link2,
+  Eye,
+  EyeOff,
   Tag,
   ChevronDown,
   Check,
@@ -83,6 +85,7 @@ export interface FeedShort {
   comment_count: number;
   viewer_liked: boolean;
   viewer_saved: boolean;
+  viewer_hidden: boolean;
   has_poster: boolean;
   poster_v: string | null;
   is_private: boolean;
@@ -155,6 +158,7 @@ export default function ShortCard({
   onSetPlaybackRate,
   onEnded,
   onRemoved,
+  onHidden,
   categoryEditable = false,
 }: {
   short: FeedShort;
@@ -183,6 +187,10 @@ export default function ShortCard({
   // Called after the clip left this feed (handed over to the main library, or
   // deleted) so the parent can drop the card and snap to the next clip.
   onRemoved?: (id: number) => void;
+  // Called after the viewer marked the clip "Not interested" (hidden=true) or
+  // took that back from the same row. The feed decides whether the card
+  // leaves: in the viewer's own collections it stays.
+  onHidden?: (id: number, hidden: boolean) => void;
   // Admins get a genre button to sort the clip into a bucket in place.
   categoryEditable?: boolean;
 }) {
@@ -213,6 +221,7 @@ export default function ShortCard({
   const [commentCount, setCommentCount] = useState(short.comment_count);
   const [showDelete, setShowDelete] = useState(false);
   const [showMore, setShowMore] = useState(false);
+  const [hidden, setHidden] = useState(short.viewer_hidden);
   const [showEdit, setShowEdit] = useState(false);
   const [showGenre, setShowGenre] = useState(false);
   const [busyAction, setBusyAction] = useState(false);
@@ -457,6 +466,32 @@ export default function ShortCard({
       }
     } catch {
       setCoverMsg("Handover failed");
+      setTimeout(() => setCoverMsg(null), 2500);
+    }
+    setBusyAction(false);
+  };
+
+  // "Not interested" (player menu): ask the feed to stop showing this clip,
+  // or take that back. Optimistic; rolled back when the request fails.
+  const toggleHidden = async () => {
+    if (busyAction) return;
+    const next = !hidden;
+    setBusyAction(true);
+    setHidden(next);
+    try {
+      const res = await fetch(`/api/shorts/${short.id}/hide`, {
+        method: next ? "POST" : "DELETE",
+      });
+      if (res.ok) {
+        onHidden?.(short.id, next);
+      } else {
+        setHidden(!next);
+        setCoverMsg(next ? "Could not hide the clip" : "Could not restore the clip");
+        setTimeout(() => setCoverMsg(null), 2500);
+      }
+    } catch {
+      setHidden(!next);
+      setCoverMsg("Network error");
       setTimeout(() => setCoverMsg(null), 2500);
     }
     setBusyAction(false);
@@ -989,6 +1024,14 @@ export default function ShortCard({
               label="Download"
               href={`/api/shorts/${short.id}/video?download=1`}
               onClick={() => setShowMore(false)}
+            />
+            <MoreRow
+              icon={hidden ? <Eye size={18} /> : <EyeOff size={18} />}
+              label={hidden ? "Show in feed again" : "Not interested"}
+              onClick={() => {
+                setShowMore(false);
+                toggleHidden();
+              }}
             />
             <div className="my-1 border-t border-white/10" />
             {onSetPlaybackRate && (
