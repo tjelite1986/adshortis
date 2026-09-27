@@ -442,6 +442,7 @@ export type ShortCategory =
   | "lesbian"
   | "trans"
   | "solo"
+  | "shortis"
   | "uncategorized";
 
 export interface UserRow {

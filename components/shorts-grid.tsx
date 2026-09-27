@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Play, Heart, Pencil, Trash2, FolderInput, X, Plus, Check, Lock } from "lucide-react";
+import { Play, Heart, Pencil, Trash2, FolderInput, X, Plus, Check, Lock, ListChecks } from "lucide-react";
 import ShortsEditSheet from "@/components/shorts-edit-sheet";
 import { useBackDismiss } from "@/lib/use-back-dismiss";
 import { useConfirm } from "@/components/confirm-dialog";
@@ -100,6 +100,13 @@ export default function ShortsGrid({
   const [moveId, setMoveId] = useState<number | null>(null);
   const [editClip, setEditClip] = useState<{ id: number; caption: string | null } | null>(null);
   const [confirmDialog, confirmAsk] = useConfirm();
+  // Multi-select (admins, categoryEditable): tiles toggle instead of opening,
+  // and a bar at the bottom moves every selected clip into one bucket.
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(() => new Set());
+  const [bulkCategory, setBulkCategory] = useState<string>(SHORT_CATEGORIES[0]);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
   // Clip length, read from the live URL so a Back-navigation returns to the
   // same slice (switchLength writes it with replaceState — no server round-trip).
   const [length, setLength] = useState<LengthFilter>(() => {
@@ -119,6 +126,8 @@ export default function ShortsGrid({
   // Device Back closes the move / edit sheet instead of leaving the page.
   useBackDismiss(moveId !== null, () => setMoveId(null));
   useBackDismiss(editClip !== null, () => setEditClip(null));
+  // ...and leaves the selection mode.
+  useBackDismiss(selecting, () => exitSelecting());
 
   const load = useCallback(async () => {
     if (loading || !hasMore) return;
@@ -253,6 +262,7 @@ export default function ShortsGrid({
     }
     setLoading(false);
     setItems([]);
+    setSelected(new Set());
     setCursor(null);
     setHasMore(true);
     setLoadedOnce(false);
@@ -314,6 +324,54 @@ export default function ShortsGrid({
     if (!res.ok) setItems(prev);
   };
 
+  function exitSelecting() {
+    setSelecting(false);
+    setSelected(new Set());
+    setBulkError(null);
+  }
+
+  const toggleSelected = (id: number) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const allSelected = items.length > 0 && items.every((s) => selected.has(s.id));
+  const toggleAll = () =>
+    setSelected(allSelected ? new Set() : new Set(items.map((s) => s.id)));
+
+  // Move every selected clip into one bucket. Optimistic like setCategory; the
+  // selection clears on success so the next batch starts empty.
+  const applyBulkCategory = async () => {
+    if (bulkBusy || selected.size === 0) return;
+    const ids = Array.from(selected);
+    const prev = items;
+    setBulkBusy(true);
+    setBulkError(null);
+    setItems((list) =>
+      list.map((s) => (selected.has(s.id) ? { ...s, category: bulkCategory } : s))
+    );
+    try {
+      const res = await fetch("/api/shorts/category", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids, category: bulkCategory }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || "Could not update the category.");
+      }
+      setSelected(new Set());
+    } catch (e) {
+      setItems(prev);
+      setBulkError(e instanceof Error ? e.message : "Could not update the category.");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   // A clip reassigned to another profile leaves this (profile-scoped) view, so
   // drop it from the list and refresh the server-rendered clip count.
   const onMoved = (id: number) => {
@@ -323,8 +381,8 @@ export default function ShortsGrid({
   };
 
   // At one per row the tiles carry a caption row (see the map below); the
-  // selection mode keeps bare posters, since there the poster IS the button.
-  const asCards = cols === 1 && !onSelect;
+  // selection modes keep bare posters, since there the poster IS the button.
+  const asCards = cols === 1 && !onSelect && !selecting;
 
   // A tile opens the feed at that clip — carry the filter along, so the clips
   // above and below it are the ones the grid was showing. hrefPrefix always
@@ -355,7 +413,25 @@ export default function ShortsGrid({
             {LENGTH_LABELS[l]}
           </button>
         ))}
-      <GridDensity cols={cols} onChange={switchCols} className="ml-auto" />
+      <div className="ml-auto flex items-center gap-1">
+        {categoryEditable && !onSelect && (
+          <button
+            onClick={() => (selecting ? exitSelecting() : setSelecting(true))}
+            aria-pressed={selecting}
+            className={cn(
+              "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition",
+              selecting
+                ? "bg-white font-semibold text-black"
+                : "bg-white/10 text-white/70 hover:bg-white/15"
+            )}
+            title="Select several clips to set their category"
+          >
+            <ListChecks size={15} />
+            {selecting ? "Done" : "Select"}
+          </button>
+        )}
+        <GridDensity cols={cols} onChange={switchCols} />
+      </div>
     </div>
   );
 
@@ -388,7 +464,7 @@ export default function ShortsGrid({
           const tile = (
           <div
             key={s.id}
-            className={
+            className={cn(
               cols === 1 && isLandscape(s)
                 ? "group relative col-span-full max-h-[calc(100dvh-11rem)] overflow-hidden rounded-xl bg-white/5"
                 : asCards
@@ -399,8 +475,9 @@ export default function ShortsGrid({
                     // the clip fits the viewport without being cropped — width
                     // still wins on a narrow screen.
                     "group relative mx-auto aspect-[9/16] w-full max-w-[calc((100dvh-11rem)*9/16)] overflow-hidden rounded-xl bg-white/5"
-                  : "group relative aspect-[9/16] overflow-hidden rounded-xl bg-white/5"
-            }
+                  : "group relative aspect-[9/16] overflow-hidden rounded-xl bg-white/5",
+              selecting && selected.has(s.id) && "ring-2 ring-rose-500"
+            )}
             // The tile takes the clip's own ratio (16:9, 4:3, …), so the wide
             // poster fills it edge to edge without a crop.
             style={
@@ -439,7 +516,7 @@ export default function ShortsGrid({
               );
               const overlay = (
                 <>
-                  {categoryEditable && (
+                  {categoryEditable && !selecting && (
                     <select
                       value={(SHORT_CATEGORIES as string[]).includes(s.category) ? s.category : "uncategorized"}
                       onChange={(e) => setCategory(s.id, e.target.value)}
@@ -472,6 +549,31 @@ export default function ShortsGrid({
                   )}
                 </>
               );
+              if (selecting) {
+                const on = selected.has(s.id);
+                return (
+                  <button
+                    onClick={() => toggleSelected(s.id)}
+                    aria-pressed={on}
+                    className="block h-full w-full"
+                  >
+                    {poster}
+                    {overlay}
+                    <span className="pointer-events-none absolute left-1 top-1 rounded bg-black/70 px-1 py-0.5 text-[10px] text-white">
+                      {CATEGORY_LABELS[s.category as keyof typeof CATEGORY_LABELS] ??
+                        CATEGORY_LABELS.uncategorized}
+                    </span>
+                    <span
+                      className={cn(
+                        "pointer-events-none absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full ring-2",
+                        on ? "bg-rose-500 text-white ring-rose-500" : "bg-black/50 text-transparent ring-white/70"
+                      )}
+                    >
+                      <Check size={14} strokeWidth={3} />
+                    </span>
+                  </button>
+                );
+              }
               return onSelect ? (
                 <button onClick={() => onSelect(s.id)} className="block h-full w-full">
                   {poster}
@@ -491,7 +593,7 @@ export default function ShortsGrid({
             {/* Admin edit pencil — the grid's counterpart of the immersive
                 card's "Edit title" (title / source / #tags). Shown standalone
                 for admins even when the fuller adminActions cluster is off. */}
-            {isAdmin && !adminActions && !onSelect && (
+            {isAdmin && !adminActions && !onSelect && !selecting && (
               <button
                 onClick={(e) => {
                   e.preventDefault();
@@ -505,7 +607,7 @@ export default function ShortsGrid({
                 <Pencil size={13} />
               </button>
             )}
-            {adminActions && (
+            {adminActions && !selecting && (
               <div className="absolute right-1 top-1 flex gap-1">
                 <button
                   onClick={(e) => {
@@ -585,6 +687,53 @@ export default function ShortsGrid({
       <div ref={sentinel} className="h-1 w-full" />
       {loading && (
         <p className="py-4 text-center text-sm text-white/40">Loading…</p>
+      )}
+      {selecting && (
+        // z-50: over the bottom nav (z-40) — the bar replaces it while selecting.
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-neutral-900/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur">
+          <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-2">
+            <span className="text-sm font-semibold text-white">
+              {selected.size} selected
+            </span>
+            <button
+              onClick={toggleAll}
+              className="rounded-full bg-white/10 px-3 py-1.5 text-sm text-white/80 transition hover:bg-white/15"
+            >
+              {allSelected ? "Clear" : `All loaded (${items.length})`}
+            </button>
+            <div className="ml-auto flex items-center gap-2">
+              <select
+                value={bulkCategory}
+                onChange={(e) => setBulkCategory(e.target.value)}
+                className="rounded-full bg-white/10 px-3 py-1.5 text-sm text-white ring-1 ring-white/20 focus:outline-none"
+                aria-label="Category for the selected clips"
+              >
+                {SHORT_CATEGORIES.map((c) => (
+                  <option key={c} value={c} className="bg-neutral-800">
+                    {CATEGORY_LABELS[c]}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={applyBulkCategory}
+                disabled={bulkBusy || selected.size === 0}
+                className="rounded-full bg-rose-500 px-4 py-1.5 text-sm font-semibold text-white transition active:scale-95 disabled:opacity-50"
+              >
+                {bulkBusy ? "Saving…" : "Apply"}
+              </button>
+              <button
+                onClick={exitSelecting}
+                className="rounded-full p-1.5 text-white/70 transition hover:text-white"
+                aria-label="Leave selection"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+          {bulkError && (
+            <p className="mx-auto mt-2 max-w-5xl text-xs text-rose-400">{bulkError}</p>
+          )}
+        </div>
       )}
       {moveId !== null && channel && (
         <MoveSheet

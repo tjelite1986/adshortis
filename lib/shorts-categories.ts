@@ -1,13 +1,15 @@
 import type { ShortCategory } from "./db";
 
-// The 18+ sorting buckets, in display order. 'uncategorized' is the inbox every
-// freshly imported clip lands in until an admin sorts it.
+// The 18+ sorting buckets, in display order. 'shortis' holds clips that belong
+// in none of the others. 'uncategorized' is the inbox every freshly imported
+// clip lands in until an admin sorts it.
 export const SHORT_CATEGORIES: ShortCategory[] = [
   "straight",
   "gay",
   "lesbian",
   "trans",
   "solo",
+  "shortis",
   "uncategorized",
 ];
 
@@ -17,6 +19,7 @@ export const CATEGORY_LABELS: Record<ShortCategory, string> = {
   lesbian: "Lesbian",
   trans: "Trans",
   solo: "Solo",
+  shortis: "Shortis",
   uncategorized: "Uncategorized",
 };
 
