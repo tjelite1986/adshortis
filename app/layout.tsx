@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { getSession, handleFor } from "@/lib/auth";
 import { loginUrl, ssoConfigured } from "@/lib/sso";
-import { getBooleanSetting, getBooleanSettings } from "@/lib/app-settings";
+import { getBooleanSettings } from "@/lib/app-settings";
 import { AppSettingsProvider } from "@/components/app-settings-context";
 import BottomNav from "@/components/bottom-nav";
 import SignedOut from "@/components/signed-out";
@@ -46,18 +46,15 @@ export default async function RootLayout({
   // run this app on its own and neither link leads anywhere you want to go, so
   // the menu should be able to drop them without the address having to go too
   // (the handover still needs MAIN_APP_URL's neighbour to exist).
-  const eliteUrl = getBooleanSetting("show_elite_link")
-    ? process.env.ELITE_APP_URL || null
-    : null;
+  // Every flag in one read; the two link gates come out of the same map.
+  const appSettings = getBooleanSettings();
+  const eliteUrl = appSettings.show_elite_link ? process.env.ELITE_APP_URL || null : null;
   // The main shorts library. Read here, not as NEXT_PUBLIC_: it is a deployment
   // fact, and baking it into the client bundle would publish the address of a
   // neighbouring app to anyone who opens the JS.
-  const mainUrl = getBooleanSetting("show_main_library_link")
+  const mainUrl = appSettings.show_main_library_link
     ? process.env.MAIN_APP_URL || null
     : null;
-  // The rest of the flags travel to the client tree, where a clip's 3-dot menu
-  // reads them.
-  const appSettings = getBooleanSettings();
 
   // Two custom properties, adopted from the site the login comes from so the
   // app does not announce itself as somewhere else on every visit. Both values
