@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { isAutoplayBlocked } from "@/components/use-sound-preference";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
   Heart,
   MessageCircle,
@@ -224,7 +224,6 @@ export default function ShortCard({
   // Admins get a genre button to sort the clip into a bucket in place.
   categoryEditable?: boolean;
 }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   // Admin-controlled: an install that does not feed a main library has no use
   // for the row. The route refuses the move as well, so this is the menu
@@ -456,9 +455,10 @@ export default function ShortCard({
       return;
     }
     // Do NOT close the sheet first: its useBackDismiss cleanup calls
-    // history.back(), which races the push and swallows the ?cat URL. The
-    // navigation remounts the feed (the page keys on the filter), unmounting
-    // the sheet, and the hook's navigated-away guard skips the back() then.
+    // history.back(), which races the navigation and swallows the ?cat URL.
+    // A hard navigation: on a soft one the new feed reads the ?focus that
+    // scrolling wrote into the live URL, falls back to "new" and starts at
+    // that clip instead of a ranked For You for the genre.
     // Same URL rules as the chips: keep tag/sort/length, drop the deep-link
     // focus so the filtered feed starts at its top. Always on /, since a
     // genre is a slice of the whole library, not of one person's clips.
@@ -467,7 +467,7 @@ export default function ShortCard({
     else next.set("cat", cat);
     next.delete("focus");
     const qs = next.toString();
-    router.push(qs ? `/?${qs}` : "/");
+    window.location.assign(qs ? `/?${qs}` : "/");
   };
 
   // Admin: set the clip's genre from the side dropdown (optimistic).
