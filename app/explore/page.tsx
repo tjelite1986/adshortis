@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 // the immersive feed there. Admins get a per-tile selector to sort the clips
 // that arrive uncategorized.
 export default async function ExplorePage(props: {
-  searchParams: Promise<{ cat?: string; length?: string }>;
+  searchParams: Promise<{ cat?: string; length?: string; unseen?: string }>;
 }) {
   const searchParams = await props.searchParams;
   const session = await getSession();
@@ -34,6 +34,7 @@ export default async function ExplorePage(props: {
         restoreKey={`explore:${category ?? "all"}`}
         lengthFilter
         initialLength={parseShortsLength(searchParams.length ?? null)}
+        initialUnseen={searchParams.unseen === "1"}
         isAdmin={session?.role === "admin"}
       />
     </div>

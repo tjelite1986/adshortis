@@ -61,6 +61,8 @@ export async function GET(request: Request) {
   const seed = Number.isFinite(seedRaw) ? seedRaw : 0;
   // Clip-length scope: short / long, split at the shorts-format minute.
   const length = parseShortsLength(url.searchParams.get("length"));
+  // Unwatched only.
+  const unseen = url.searchParams.get("unseen") === "1";
 
   // Profile-scoped feed: derive the channel from the profile so 18+ gating still
   // applies. Channel-scoped feed: use the requested channel.
@@ -117,7 +119,8 @@ export async function GET(request: Request) {
     seed,
     mentionedIds,
     length,
-    category
+    category,
+    unseen
   );
 
   return NextResponse.json({ items, nextCursor });
