@@ -69,10 +69,24 @@ function fmtTime(s: number): string {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
+/** Progress in the current stretch that no report has carried yet. */
+function hasUnsent(w: {
+  wasActive: boolean;
+  maxTime: number;
+  completed: boolean;
+  sentMax: number;
+  sentCompleted: boolean;
+}): boolean {
+  return w.wasActive && (w.maxTime > w.sentMax || (w.completed && !w.sentCompleted));
+}
+
 export interface ShortCardApi {
   togglePlay: () => void;
   like: () => void;
   openSave: () => void;
+  // The watch report so far, for a page that is being hidden. Marks it sent,
+  // so the report when the card later goes inactive only covers new progress.
+  watchSoFar: () => { id: number; watchMs: number; completed: boolean } | null;
 }
 
 export interface FeedShort {
@@ -232,7 +246,15 @@ export default function ShortCard({
   const videoRef = useRef<HTMLVideoElement>(null);
   // Furthest point reached and whether the end was seen, for the watch
   // report. Refs, not state: they change on every timeupdate.
-  const watch = useRef({ maxTime: 0, lastTime: 0, completed: false, wasActive: false });
+  // `sentMax`/`sentCompleted`: what a hide-time report already sent.
+  const watch = useRef({
+    maxTime: 0,
+    lastTime: 0,
+    completed: false,
+    wasActive: false,
+    sentMax: 0,
+    sentCompleted: false,
+  });
   const onViewedRef = useRef(onViewed);
   onViewedRef.current = onViewed;
   const [playing, setPlaying] = useState(false);
@@ -607,17 +629,28 @@ export default function ShortCard({
   // The keyboard handle, registered for as long as the card is active. The
   // functions read refs and setters, so a stale closure cannot act on an old
   // clip.
-  const apiRef = useRef<ShortCardApi>({ togglePlay: () => {}, like: () => {}, openSave: () => {} });
+  const apiRef = useRef<Omit<ShortCardApi, "watchSoFar">>({
+    togglePlay: () => {},
+    like: () => {},
+    openSave: () => {},
+  });
   useEffect(() => {
     if (!active || !registerApi) return;
     const api: ShortCardApi = {
       togglePlay: () => apiRef.current.togglePlay(),
       like: () => apiRef.current.like(),
       openSave: () => apiRef.current.openSave(),
+      watchSoFar: () => {
+        const w = watch.current;
+        if (!hasUnsent(w)) return null;
+        w.sentMax = w.maxTime;
+        w.sentCompleted = w.completed;
+        return { id: short.id, watchMs: w.maxTime * 1000, completed: w.completed };
+      },
     };
     registerApi(api);
     return () => registerApi(null);
-  }, [active, registerApi]);
+  }, [active, registerApi, short.id]);
 
   // One report per stretch as the active card. A loop restart (currentTime
   // jumping back) counts as having reached the end, since `loop` suppresses
@@ -628,12 +661,15 @@ export default function ShortCard({
       w.maxTime = 0;
       w.lastTime = 0;
       w.completed = false;
+      w.sentMax = 0;
+      w.sentCompleted = false;
       w.wasActive = true;
       return;
     }
     if (!w.wasActive) return;
+    const send = hasUnsent(w);
     w.wasActive = false;
-    if (w.maxTime > 0 || w.completed) {
+    if (send) {
       onViewedRef.current?.(short.id, { watchMs: w.maxTime * 1000, completed: w.completed });
     }
   }, [active, short.id]);
@@ -642,7 +678,7 @@ export default function ShortCard({
     // purpose, since that is when the final figures are known.
     const w = watch.current;
     return () => {
-      if (w.wasActive && (w.maxTime > 0 || w.completed)) {
+      if (hasUnsent(w)) {
         onViewedRef.current?.(short.id, { watchMs: w.maxTime * 1000, completed: w.completed });
       }
     };
@@ -1138,6 +1174,8 @@ export default function ShortCard({
           way out right there, like TikTok's sheet does. */}
       {showWhy && short.why && (
         <div
+          role="dialog"
+          aria-modal="true"
           className="absolute inset-0 z-20 flex items-end justify-center bg-black/60"
           onClick={() => setShowWhy(false)}
         >
@@ -1179,6 +1217,8 @@ export default function ShortCard({
           the same clip replaces the first, so "Reported" reopens the same form. */}
       {showReport && (
         <div
+          role="dialog"
+          aria-modal="true"
           className="absolute inset-0 z-20 flex items-end justify-center bg-black/60"
           onClick={() => setShowReport(false)}
         >
@@ -1242,6 +1282,8 @@ export default function ShortCard({
 
       {showDelete && (
         <div
+          role="dialog"
+          aria-modal="true"
           className="absolute inset-0 z-20 flex items-end justify-center bg-black/60"
           onClick={() => setShowDelete(false)}
         >
@@ -1277,6 +1319,8 @@ export default function ShortCard({
           the sheet open so the new state is visible. */}
       {showMore && (
         <div
+          role="dialog"
+          aria-modal="true"
           className="absolute inset-0 z-20 flex items-end justify-center bg-black/60"
           onClick={() => setShowMore(false)}
         >
