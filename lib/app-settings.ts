@@ -45,8 +45,18 @@ export function setBooleanSetting(
   ).run(key, value ? "1" : "0");
 }
 
+// One statement for the whole table: the root layout wants every flag on
+// every request, and a read per key was a prepared statement per key.
 export function getBooleanSettings(): Record<BooleanSettingKey, boolean> {
+  const rows = db.prepare("SELECT key, value FROM app_settings").all() as {
+    key: string;
+    value: string;
+  }[];
+  const stored = new Map(rows.map((r) => [r.key, r.value]));
   return Object.fromEntries(
-    BOOLEAN_SETTING_KEYS.map((k) => [k, getBooleanSetting(k)])
+    BOOLEAN_SETTING_KEYS.map((k) => {
+      const v = stored.get(k);
+      return [k, v === undefined ? BOOLEAN_SETTINGS[k].default : v === "1"];
+    })
   ) as Record<BooleanSettingKey, boolean>;
 }

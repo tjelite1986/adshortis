@@ -2,6 +2,7 @@ import ShortsGrid from "@/components/shorts-grid";
 import ShortsCategoryChips from "@/components/shorts-category-chips";
 import { getSession } from "@/lib/auth";
 import { parseCategory } from "@/lib/shorts-categories";
+import { parseShortsLength } from "@/lib/shorts";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +10,7 @@ export const dynamic = "force-dynamic";
 // the immersive feed there. Admins get a per-tile selector to sort the clips
 // that arrive uncategorized.
 export default async function ExplorePage(props: {
-  searchParams: Promise<{ cat?: string }>;
+  searchParams: Promise<{ cat?: string; length?: string }>;
 }) {
   const searchParams = await props.searchParams;
   const session = await getSession();
@@ -32,6 +33,7 @@ export default async function ExplorePage(props: {
         categoryEditable={session?.role === "admin"}
         restoreKey={`explore:${category ?? "all"}`}
         lengthFilter
+        initialLength={parseShortsLength(searchParams.length ?? null)}
         isAdmin={session?.role === "admin"}
       />
     </div>
